@@ -1,0 +1,7 @@
+{
+    "name": "akwad/voyager-firestore-extension",
+    "description": "allows voyager to manipulate firestore databases",
+    "type": "library",
+    "minimum-stability": "dev",
+    "require": {}
+}
