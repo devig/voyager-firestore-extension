@@ -1,6 +1,6 @@
 <?php
 
-namespace BREAD;
+namespace Akwad\VoyagerFirestoreExtension;
 
 
 use Illuminate\Support\ServiceProvider;
