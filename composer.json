@@ -14,7 +14,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Akwad\\VoyagerFirestoreExtension\\FirestoreServiceProvier"
+                "Akwad\\VoyagerFirestoreExtension\\FirestoreServiceProvider"
             ]
         }
     }
