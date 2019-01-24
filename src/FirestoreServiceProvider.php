@@ -15,11 +15,11 @@ class FirestoreServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        $this->loadRoutesFrom( path:__DIR__ . '/routes/web.php');
-        $this->loadViewsFrom( path:__DIR__ . '/./../resources/views/FBREAD');
-         $this->publishes([
-        __DIR__.'/./../resources/views/FBREAD' => base_path('resources/views/FBREAD'),
-    ]);
+        $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
+
+        $this->loadViewsFrom( __DIR__ . '/./../resources/views/FBREAD');
+        
+        $this->publishes([__DIR__.'/./../resources/views/FBREAD' => base_path('resources/views/FBREAD')]);
     }
 
     /**
