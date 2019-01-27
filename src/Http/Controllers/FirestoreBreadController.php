@@ -1,6 +1,6 @@
 <?php
 
-namespace VoyagerFirestoreExtension\Http\Controllers;
+namespace Akwad\VoyagerFirestoreExtension\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -40,7 +40,7 @@ class FirestoreBreadController extends Controller
             return (object) $table;
         }, $this->listCollectionNames($Firestore));
 
-        return view('FBREAD.index')->with(compact('dataTypes', 'tables'));
+        return view('VoyagerFirestore.index')->with(compact('dataTypes', 'tables'));
 
 
 		/////////////////////////////////////////////////////////////////////
@@ -72,7 +72,7 @@ public function create(Request $request, $table,FirestoreClient $Firestore)
             ? app($dataType->model_name)->getTable()
             : $table
         );
-        return view('FBREAD.edit-add', $data);
+        return view('VoyagerFirestore.edit-add', $data);
     }
 
     private function prepopulateBreadInfo($table)
@@ -115,9 +115,9 @@ public function create(Request $request, $table,FirestoreClient $Firestore)
                 event(new BreadAdded($dataType, $data));
             }
 
-            return redirect()->route('FBREAD.index')->with($data);
+            return redirect()->route('VoyagerFirestore::tools.fbread.index')->with($data);
         } catch (Exception $e) {
-            return redirect()->route('FBREAD.index')->with($this->alertException($e, 'Saving Failed'));
+            return redirect()->route('VoyagerFirestore::tools.fbread.index')->with($this->alertException($e, 'Saving Failed'));
         }
     }
 
@@ -136,7 +136,7 @@ public function create(Request $request, $table,FirestoreClient $Firestore)
         $tables = $this->listCollectionNames($Firestore);
        
 
-        return Voyager::view('FBREAD.edit-add', compact('dataType', 'fieldOptions', 'isModelTranslatable', 'tables'));
+        return Voyager::view('VoyagerFirestore::tools.fbread.edit-add', compact('dataType', 'fieldOptions', 'isModelTranslatable', 'tables'));
     }
 
     public function update(Request $request, $id, FirestoreClient $Firestore)
@@ -163,7 +163,7 @@ public function create(Request $request, $table,FirestoreClient $Firestore)
             // Save translations if applied
             $dataType->saveTranslations($translations);
 
-            return redirect()->route('FBREAD.index')->with($data);
+            return redirect()->route('VoyagerFirestore::tools.fbread.index')->with($data);
         } catch (Exception $e) {
             return back()->with($this->alertException($e, __('voyager::generic.update_failed')));
         }
@@ -194,7 +194,7 @@ public function create(Request $request, $table,FirestoreClient $Firestore)
             Voyager::model('Permission')->removeFrom($dataType->name);
         }
 
-        return redirect()->route('FBREAD.index')->with($data);
+        return redirect()->route('VoyagerFirestore::tools.fbread.index')->with($data);
     }
 
 

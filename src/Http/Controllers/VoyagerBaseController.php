@@ -1,6 +1,6 @@
 <?php
 
-namespace VoyagerFirestoreExtension\Http\Controllers;
+namespace Akwad\VoyagerFirestoreExtension\Http\Controllers;
 
 use TCG\Voyager\Http\Controllers\VoyagerBaseController as BaseVoyagerBaseController;
 use Illuminate\Database\Eloquent\Model;
@@ -125,11 +125,11 @@ class VoyagerBaseController extends BaseVoyagerBaseController
         // Check if server side pagination is enabled
         $isServerSide = isset($dataType->server_side) && $dataType->server_side;
 
-        $view = 'FBREAD.browse';
+        $view = 'Voyager::bread.browse';
 
 
-        if (view()->exists("FBREAD::$slug.browse")) {
-            $view = "FBREAD::$slug.browse";
+        if (view()->exists("Voyager::$slug.browse")) {
+            $view = "Voyager::$slug.browse";
         }
 
         return Voyager::view($view, compact(

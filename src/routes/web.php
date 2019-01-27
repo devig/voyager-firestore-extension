@@ -1,12 +1,15 @@
 <?php
 
-$namespace = 'VoyagerFirestoreExtension\Http\Controllers';
+use TCG\Voyager\Models\DataType;
+
+
+$namespace = 'Akwad\VoyagerFirestoreExtension\Http\Controllers';
 
 
 
  Route::group([
-            'as'     => 'FBREAD.',
-            'prefix' => '/admin/FBREAD',
+            'as'     => 'VoyagerFirestore',
+            'prefix' => '/admin/fbread',
             'namespace'=>$namespace
         ], function () {
             Route::get('/', ['uses' => 'FirestoreBreadController@index', 'as' => 'index']);
@@ -20,7 +23,5 @@ $namespace = 'VoyagerFirestoreExtension\Http\Controllers';
             
             
         });
-
-
 
 ?>
