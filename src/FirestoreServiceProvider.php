@@ -2,9 +2,8 @@
 
 namespace Akwad\VoyagerFirestoreExtension;
 
-
-use Illuminate\Support\ServiceProvider;
 use Google\Cloud\Firestore\FirestoreClient;
+use Illuminate\Support\ServiceProvider;
 
 class FirestoreServiceProvider extends ServiceProvider
 {
@@ -15,11 +14,9 @@ class FirestoreServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-         $this->loadRoutesFrom(__DIR__ . '/routes/web.php');
 
-        $this->loadViewsFrom( __DIR__ . '/./../resources/views/fbread','VoyagerFirestore');
-        
-       // $this->publishes([__DIR__.'/./../resources/views/FBREAD' => base_path('resources/views/FBREAD')]);
+        $this->loadViewsFrom(__DIR__ . '../../resources/views', 'VoyagerFirestore');
+
     }
 
     /**
@@ -29,7 +26,7 @@ class FirestoreServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->app->singleton('FirestoreClient', function(){
+        $this->app->singleton('FirestoreClient', function () {
             return new FirestoreClient();
         });
     }
