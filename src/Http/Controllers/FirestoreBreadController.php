@@ -102,9 +102,9 @@ class FirestoreBreadController extends Controller
                 event(new BreadAdded($dataType, $data));
             }
 
-            return redirect()->route('VoyagerFirestore::tools.fbread.index')->with($data);
+            return redirect()->route('VoyagerFirestore.index')->with($data);
         } catch (Exception $e) {
-            return redirect()->route('VoyagerFirestore::tools.fbread.index')->with($this->alertException($e, 'Saving Failed'));
+            return redirect()->route('VoyagerFirestore.index')->with($this->alertException($e, 'Saving Failed'));
         }
     }
 

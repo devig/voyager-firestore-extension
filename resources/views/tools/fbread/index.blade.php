@@ -43,7 +43,7 @@
                                    class="btn btn-warning btn-sm browse_bread" style="margin-right: 0;">
                                     <i class="voyager-plus"></i> Browse
                                 </a>
-                                <a href="{{ route('FBREAD.edit', $table->name) }}"
+                                <a href="{{ route('VoyagerFirestore.edit', $table->name) }}"
                                    class="btn btn-primary btn-sm edit">
                                     <i class="voyager-edit"></i> {{ __('voyager::generic.edit') }}
                                 </a>
@@ -52,7 +52,7 @@
                                     <i class="voyager-trash"></i> {{ __('voyager::generic.delete') }}
                                 </a>
                             @else
-                                <a href="{{ route('FBREAD.create', ['name' => $table->name]) }}"
+                                <a href="{{ route('VoyagerFirestore.create', ['name' => $table->name]) }}"
                                    class="_btn btn-default btn-sm pull-right">
                                     <i class="voyager-plus"></i> {{ __('voyager::bread.add_bread') }}
                                 </a>
@@ -74,7 +74,7 @@
                     <h4 class="modal-title"><i class="voyager-trash"></i>  {!! __('voyager::bread.delete_bread_quest', ['table' => '<span id="delete_builder_name"></span>']) !!}</h4>
                 </div>
                 <div class="modal-footer">
-                    <form action="{{ route('FBREAD.delete', ['id' => null]) }}" id="delete_builder_form" method="POST">
+                    <form action="{{ route('VoyagerFirestore.delete', ['id' => null]) }}" id="delete_builder_form" method="POST">
                         {{ method_field('DELETE') }}
                         <input type="hidden" name="_token" value="{{ csrf_token() }}">
                         <input type="submit" class="btn btn-danger" value="{{ __('voyager::bread.delete_bread_conf') }}">

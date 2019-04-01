@@ -2,37 +2,27 @@
 
 namespace Akwad\VoyagerFirestoreExtension\Http\Controllers;
 
-use TCG\Voyager\Http\Controllers\VoyagerBaseController as BaseVoyagerBaseController;
+use App\DataType;
+use Google\Cloud\Firestore\FirestoreClient;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use TCG\Voyager\Database\Schema\Column;
-use TCG\Voyager\Database\Schema\SchemaManager;
 use TCG\Voyager\Database\Schema\Table;
 use TCG\Voyager\Database\Types\Type;
-use TCG\Voyager\Facades\Voyager;
-use TCG\Voyager\Models\DataRow;
-use App\DataType;
-use TCG\Voyager\Models\Permission;
-use TCG\Voyager\Http\Controllers\Traits\BreadRelationshipParser;
-use Google\Cloud\Firestore\FirestoreClient;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Google\Cloud\Firestore\FieldValue;
-use TCG\Voyager\Events\BreadDataUpdated;
 use TCG\Voyager\Events\BreadDataAdded;
 use TCG\Voyager\Events\BreadDataDeleted;
-
-
-
+use TCG\Voyager\Events\BreadDataUpdated;
+use TCG\Voyager\Facades\Voyager;
+use TCG\Voyager\Http\Controllers\Traits\BreadRelationshipParser;
+use TCG\Voyager\Http\Controllers\VoyagerBaseController as BaseVoyagerBaseController;
 
 class VoyagerBaseController extends BaseVoyagerBaseController
 {
-	    use BreadRelationshipParser;
+    use BreadRelationshipParser;
 
-    
-    
-    
     //***************************************
     //               ____
     //              |  _ \
@@ -48,7 +38,7 @@ class VoyagerBaseController extends BaseVoyagerBaseController
     public function index(Request $request)
     {
 
-         $Firestore = resolve('Google\Cloud\Firestore\FirestoreClient');
+        $Firestore = resolve('Google\Cloud\Firestore\FirestoreClient');
 
         // GET THE SLUG, ex. 'posts', 'pages', etc.
         $slug = $this->getSlug($request);
@@ -56,95 +46,93 @@ class VoyagerBaseController extends BaseVoyagerBaseController
         // GET THE DataType based on the slug
         $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
 
-        if(!$dataType->iscollection){
-        	return parent::index($request);
-        }
-        else{
-        // Check permission
-        $this->authorize('browse', app($dataType->model_name));
+        if (!$dataType->iscollection) {
+            return parent::index($request);
+        } else {
+            // Check permission
+            $this->authorize('browse', app($dataType->model_name));
 
-        $getter = $dataType->server_side ? 'paginate' : 'get';
+            $getter = $dataType->server_side ? 'paginate' : 'get';
 
-        $search = (object) ['value' => $request->get('s'), 'key' => $request->get('key'), 'filter' => $request->get('filter')];
+            $search = (object) ['value' => $request->get('s'), 'key' => $request->get('key'), 'filter' => $request->get('filter')];
 
-        $collectionReference = $Firestore->collection($slug);
+            $collectionReference = $Firestore->collection($slug);
 
-        
+            $searchable = $dataType->server_side ? array_keys($this->describeCollection($Firestore, $slug)->toArray()) : '';
 
+            $orderBy = $request->get('order_by');
+            $sortOrder = $request->get('sort_order', null);
 
-       $searchable = $dataType->server_side ? array_keys($this->describeCollection($Firestore, $slug)->toArray()) : '';
-      
-        $orderBy = $request->get('order_by');
-        $sortOrder = $request->get('sort_order', null);
+            // Next Get or Paginate the actual content from the MODEL that corresponds to the slug DataType
+            if (strlen($slug) != 0) {
 
-        // Next Get or Paginate the actual content from the MODEL that corresponds to the slug DataType
-        if (strlen($slug) != 0) {
+                $docRef = $collectionReference->documents();
 
-            $docRef = $collectionReference->documents();
+                // If a column has a relationship associated with it, we do not want to show that field
+                // $this->removeRelationshipField($dataType, 'browse');
 
-            // If a column has a relationship associated with it, we do not want to show that field
-           // $this->removeRelationshipField($dataType, 'browse');
+                if ($search->value && $search->key && $search->filter) {
+                    $search_filter = ($search->filter == 'equals') ? '=' : 'LIKE';
+                    $search_value = ($search->filter == 'equals') ? $search->value : '%' . $search->value . '%';
+                    $query = $collectionReference->where($search->key, $search_filter, $search_value);
+                    $docRef = $query->documents();
+                }
 
-            if ($search->value && $search->key && $search->filter) {
-                $search_filter = ($search->filter == 'equals') ? '=' : 'LIKE';
-                $search_value = ($search->filter == 'equals') ? $search->value : '%'.$search->value.'%';
-                $query= $collectionReference->where($search->key, $search_filter, $search_value);
-                $docRef = $query->documents();
-            }
+                if ($orderBy && in_array($orderBy, $dataType->Ffields($Firestore, $slug))) {
+                    $querySortOrder = (!empty($sortOrder)) ? $sortOrder : 'DESC';
+                    $query = $collectionReference->orderBy($orderBy, $querySortOrder);
+                    $docRef = $query->documents();
+                }
 
-            if ($orderBy && in_array($orderBy, $dataType->Ffields($Firestore, $slug))) {
-                $querySortOrder = (!empty($sortOrder)) ? $sortOrder : 'DESC';
-                $query = $collectionReference->orderBy($orderBy,$querySortOrder);
-                $docRef = $query->documents();
-            }
-           
-            $dataTypeContent = collect();
-            foreach ($docRef as $data) {
-                $model = app($dataType->model_name);
+                $dataTypeContent = collect();
+                foreach ($docRef as $data) {
+                    $model = app($dataType->model_name);
 
-                if($data->id() == 'structure') continue;
+                    if ($data->id() == 'structure') {
+                        continue;
+                    }
+
                     $model->fill($data->data());
                     $model->id = $data->id();
                     $dataTypeContent->push($model);
+                }
+                $page = 1;
+                $perPage = 10;
+                $dataTypeContent = new LengthAwarePaginator($dataTypeContent->forPage($page, $perPage), $dataTypeContent->count(), $perPage, $page);
+
+                // Replace relationships' keys for labels and create READ links if a slug is provided.
+                // $dataTypeContent = $this->resolveRelations($dataTypeContent, $dataType);
             }
-            $page = 1;
-            $perPage = 10;
-            $dataTypeContent = new LengthAwarePaginator($dataTypeContent->forPage($page, $perPage), $dataTypeContent->count(), $perPage, $page);
 
-            // Replace relationships' keys for labels and create READ links if a slug is provided.
-           // $dataTypeContent = $this->resolveRelations($dataTypeContent, $dataType);
+            //TODO::implement translations with Firestore
+
+            // Check if BREAD is Translatable
+            if (($isModelTranslatable = false)) {
+                $dataTypeContent->load('translations');
+            }
+
+            // Check if server side pagination is enabled
+            $isServerSide = isset($dataType->server_side) && $dataType->server_side;
+
+            $view = 'Voyager::bread.browse';
+
+            if (view()->exists("Voyager::$slug.browse")) {
+                $view = "Voyager::$slug.browse";
+            }
+
+            return Voyager::view($view, compact(
+                'dataType',
+                'dataTypeContent',
+                'isModelTranslatable',
+                'search',
+                'orderBy',
+                'sortOrder',
+                'searchable',
+                'isServerSide'
+            ));
         }
-
-        //TODO::implement translations with Firestore
-
-        // Check if BREAD is Translatable
-        if (($isModelTranslatable = false)) {
-           $dataTypeContent->load('translations');
-        }
-
-        // Check if server side pagination is enabled
-        $isServerSide = isset($dataType->server_side) && $dataType->server_side;
-
-        $view = 'Voyager::bread.browse';
-
-
-        if (view()->exists("Voyager::$slug.browse")) {
-            $view = "Voyager::$slug.browse";
-        }
-
-        return Voyager::view($view, compact(
-            'dataType',
-            'dataTypeContent',
-            'isModelTranslatable',
-            'search',
-            'orderBy',
-            'sortOrder',
-            'searchable',
-            'isServerSide'
-        ));
     }
-}
-public function getSlug(Request $request)
+    public function getSlug(Request $request)
     {
         if (isset($this->slug)) {
             $slug = $this->slug;
@@ -155,15 +143,16 @@ public function getSlug(Request $request)
         return $slug;
     }
 
-    public function listCollectionNames(FirestoreClient $Firestore){
-		$collectionReference = $Firestore->collections();
-		$tables = [];
-		foreach($collectionReference as $collection){
-			$parts = explode('/',$collection->name());
-			$tables[] = $parts[count($parts)-1];
-		}
-		return $tables;
-}
+    public function listCollectionNames(FirestoreClient $Firestore)
+    {
+        $collectionReference = $Firestore->collections();
+        $tables = [];
+        foreach ($collectionReference as $collection) {
+            $parts = explode('/', $collection->name());
+            $tables[] = $parts[count($parts) - 1];
+        }
+        return $tables;
+    }
 
     //***************************************
     //                _____
@@ -232,23 +221,22 @@ public function getSlug(Request $request)
 
         $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
 
-        if(!$dataType->iscollection){
+        if (!$dataType->iscollection) {
             return parent::edit($request, $id);
         }
-        else{
-            $collectionReference = $Firestore->collection($slug);
-            $docRef = $collectionReference->document($id);
-           $snapshot = $docRef->snapshot()->data();
 
-             if((strlen($dataType->model_name) != 0)){
-                $model = app($dataType->model_name);
+        $collectionReference = $Firestore->collection($slug);
+        $docRef = $collectionReference->document($id);
+        $snapshot = $docRef->snapshot()->data();
 
-                    $model->fill($snapshot);
-                    $model->id = $id;
-                    $dataTypeContent = $model;
-            
+        if ((strlen($dataType->model_name) != 0)) {
+            $model = app($dataType->model_name);
+
+            $model->fill($snapshot);
+            $model->id = $id;
+            $dataTypeContent = $model;
+
         }
-        
 
         foreach ($dataType->editRows as $key => $row) {
             $dataType->editRows[$key]['col_width'] = isset($row->details->width) ? $row->details->width : 100;
@@ -267,8 +255,8 @@ public function getSlug(Request $request)
         }
 
         return Voyager::view($view, compact('dataType', 'dataTypeContent', 'isModelTranslatable'));
+
     }
-}
 
     // POST BR(E)AD
     public function update(Request $request, $id)
@@ -280,16 +268,16 @@ public function getSlug(Request $request)
         $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
         // Compatibility with Model binding.
 
-          $collectionReference = $Firestore->collection($slug);
-            $docRef = $collectionReference->document($id);
-           $snapshot = $docRef->snapshot()->data();
+        $collectionReference = $Firestore->collection($slug);
+        $docRef = $collectionReference->document($id);
+        $snapshot = $docRef->snapshot()->data();
 
-             if((strlen($dataType->model_name) != 0)){
-                $data = app($dataType->model_name);
+        if ((strlen($dataType->model_name) != 0)) {
+            $data = app($dataType->model_name);
 
-                    $data->fill($snapshot);
-                    $data->id = $id;
-           } 
+            $data->fill($snapshot);
+            $data->id = $id;
+        }
 
         // Check permission
         $this->authorize('edit', $data);
@@ -300,25 +288,34 @@ public function getSlug(Request $request)
         if ($val->fails()) {
             return response()->json(['errors' => $val->messages()]);
         }
-        
 
         if (!$request->ajax()) {
-                $this->FinsertUpdateData($request, $slug, $dataType->editRows, $data, $docRef);
-
-                event(new BreadDataUpdated($dataType, $data));
-
-                return redirect()
-                    ->route("voyager.{$dataType->slug}.index")
-                    ->with([
-                        'message'    => __('voyager::generic.successfully_updated')." {$dataType->display_name_singular}",
-                        'alert-type' => 'success',
-                ]);
+            $this->FinsertUpdateData($request, $slug, $dataType->editRows, $data, $docRef);
+            // if we have an index table call it
+            if (class_exists($dataType->model_name.'Index')) {
+                $indexModel = app($dataType->model_name.'Index');
+               
+                //make sure we call the mutators
+                foreach($data->getAttributes() as $key => $value)
+                {
+                    $indexModel->$key = $value; 
+                }
+                
+                $indexModel->save();
             }
+
+            event(new BreadDataUpdated($dataType, $data));
+
+            return redirect()
+                ->route("voyager.{$dataType->slug}.index")
+                ->with([
+                    'message' => __('voyager::generic.successfully_updated') . " {$dataType->display_name_singular}",
+                    'alert-type' => 'success',
+                ]);
         }
-    
+    }
 
-
-public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
+    public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
     {
         $multi_select = [];
 
@@ -326,8 +323,8 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
          * Prepare Translations and Transform data
          */
         $translations = is_bread_translatable($data)
-                        ? $data->prepareTranslations($request)
-                        : [];
+        ? $data->prepareTranslations($request)
+        : [];
 
         foreach ($rows as $row) {
             // if the field for this row is absent from the request, continue
@@ -387,26 +384,21 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
                 $data->{$row->field} = $content;
             }
         }
-            $firestoreData=[];
-            foreach ($data->getAttributes() as $key => $value) {
-               
-                $firestoreData[]= ['path'=> $key, 'value'=>$value];
-            }
+        $firestoreData = [];
+        foreach ($data->getAttributes() as $key => $value) {
 
+            $firestoreData[] = ['path' => $key, 'value' => $value];
+        }
 
-            $docRef->set((array)$data->getAttributes());
-       
-        
-    
+        $docRef->set((array) $data->getAttributes());
+
         // Save translations
         if (count($translations) > 0) {
             $data->saveTranslations($translations);
         }
 
-
         return $data;
     }
-
 
     //***************************************
     //
@@ -431,8 +423,8 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
         $this->authorize('add', app($dataType->model_name));
 
         $dataTypeContent = (strlen($dataType->model_name) != 0)
-                            ? new $dataType->model_name()
-                            : false;
+        ? new $dataType->model_name()
+        : false;
 
         foreach ($dataType->addRows as $key => $row) {
             $dataType->addRows[$key]['col_width'] = isset($row->details->width) ? $row->details->width : 100;
@@ -468,13 +460,13 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
         $slug = $this->getSlug($request);
 
         $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
-        
+
         $collectionReference = $Firestore->collection($slug);
 
-           $data = [];
-           $docRef = $collectionReference->newDocument();
+        $data = app($dataType->model_name);
+        $docRef = $collectionReference->newDocument();
         // Check permission
-        $this->authorize('add', app($dataType->model_name));
+        $this->authorize('add', $data);
 
         // Validate fields with ajax
         $val = $this->validateBread($request->all(), $dataType->addRows);
@@ -484,8 +476,19 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
         }
 
         if (!$request->has('_validate')) {
-            $data [] = $this->FinsertUpdateData($request, $slug, $dataType->addRows, new $dataType->model_name(), $docRef);
-
+             $this->FinsertUpdateData($request, $slug, $dataType->addRows, $data, $docRef);
+            
+             if (class_exists($dataType->model_name.'Index')) {
+                $indexModel = app($dataType->model_name.'Index');
+                
+                //make sure we call the mutators
+                foreach($data->getAttributes() as $key => $value)
+                {
+                    $indexModel->$key = $value; 
+                }
+                
+                $indexModel->save();
+            }
             event(new BreadDataAdded($dataType, $data));
 
             if ($request->ajax()) {
@@ -495,9 +498,9 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
             return redirect()
                 ->route("voyager.{$dataType->slug}.index")
                 ->with([
-                        'message'    => __('voyager::generic.successfully_added_new')." {$dataType->display_name_singular}",
-                        'alert-type' => 'success',
-                    ]);
+                    'message' => __('voyager::generic.successfully_added_new') . " {$dataType->display_name_singular}",
+                    'alert-type' => 'success',
+                ]);
         }
     }
 
@@ -540,14 +543,14 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
 
         $res = $data->destroy($ids);
         $data = $res
-            ? [
-                'message'    => __('voyager::generic.successfully_deleted')." {$displayName}",
-                'alert-type' => 'success',
-            ]
-            : [
-                'message'    => __('voyager::generic.error_deleting')." {$displayName}",
-                'alert-type' => 'error',
-            ];
+        ? [
+            'message' => __('voyager::generic.successfully_deleted') . " {$displayName}",
+            'alert-type' => 'success',
+        ]
+        : [
+            'message' => __('voyager::generic.error_deleting') . " {$displayName}",
+            'alert-type' => 'error',
+        ];
 
         if ($res) {
             event(new BreadDataDeleted($dataType, $data));
@@ -602,13 +605,13 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
             if (isset($row->details->thumbnails)) {
                 foreach ($row->details->thumbnails as $thumbnail) {
                     $ext = explode('.', $data->{$row->field});
-                    $extension = '.'.$ext[count($ext) - 1];
+                    $extension = '.' . $ext[count($ext) - 1];
 
                     $path = str_replace($extension, '', $data->{$row->field});
 
                     $thumb_name = $thumbnail->name;
 
-                    $this->deleteFileIfExists($path.'-'.$thumb_name.$extension);
+                    $this->deleteFileIfExists($path . '-' . $thumb_name . $extension);
                 }
             }
         }
@@ -636,11 +639,11 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
 
         if (!isset($dataType->order_column) || !isset($dataType->order_display_column)) {
             return redirect()
-            ->route("voyager.{$dataType->slug}.index")
-            ->with([
-                'message'    => __('voyager::bread.ordering_not_set'),
-                'alert-type' => 'error',
-            ]);
+                ->route("voyager.{$dataType->slug}.index")
+                ->with([
+                    'message' => __('voyager::bread.ordering_not_set'),
+                    'alert-type' => 'error',
+                ]);
         }
 
         $model = app($dataType->model_name);
@@ -681,9 +684,8 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
         }
     }
 
-
-
- public function describeCollection($Firestore, $collectionName){        
+    public function describeCollection($Firestore, $collectionName)
+    {
         $collectionReference = $Firestore->collection($collectionName);
         $documentReference = $collectionReference->document('structure');
         return collect($documentReference->snapshot()->data());
@@ -693,23 +695,19 @@ public function FinsertUpdateData($request, $slug, $rows, $data, $docRef)
     protected function alert($message, $type)
     {
         $this->alerts['alerts'][] = [
-            'type'    => $type,
+            'type' => $type,
             'message' => $message,
         ];
 
         return $this->alerts;
     }
 
-
- public function alertSuccess($message)
+    public function alertSuccess($message)
     {
         return $this->alert($message, 'success');
     }
-public function alertError($message)
+    public function alertError($message)
     {
         return $this->alert($message, 'error');
     }
 }
-
-
-

@@ -22,7 +22,7 @@
         <div class="row">
             <div class="col-md-12">
 
-                <form action="@if(isset($dataType->id)){{ route('FBREAD.update', $dataType->id) }}@else{{ route('FBREAD.store') }}@endif"
+                <form action="@if(isset($dataType->id)){{ route('VoyagerFirestore.update', $dataType->id) }}@else{{ route('VoyagerFirestore.store') }}@endif"
                       method="POST" role="form">
                 @if(isset($dataType->id))
                     <input type="hidden" value="{{ $dataType->id }}" name="id">
