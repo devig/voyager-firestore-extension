@@ -6,9 +6,9 @@
     "license": "MIT",
     "minimum-stability": "dev",
     "require": {
-        "illuminate/support": "^5.8.0",
-        "google/cloud-firestore":"^0.15.8",
-        "tcg/voyager":"^1.2"
+        "illuminate/support": "5.8.0",
+        "google/cloud-firestore":"0.15.8",
+        "tcg/voyager":"1.2"
 
     },
      "autoload": {
