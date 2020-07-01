@@ -1,12 +1,12 @@
 {
-    "name": "akwad/voyager-firestore-extension",
+    "name": "devig/voyager-firestore-extension",
     "description": "allows voyager to manipulate firestore databases",
     "type": "library",
     "keywords": ["laravel", "admin", "panel","firestore"],
     "license": "MIT",
     "minimum-stability": "dev",
     "require": {
-        "illuminate/support": "5.7.28",
+        "illuminate/support": "5.7.29",
         "google/cloud-firestore":"0.15.8",
         "tcg/voyager":"1.1.12"
 
